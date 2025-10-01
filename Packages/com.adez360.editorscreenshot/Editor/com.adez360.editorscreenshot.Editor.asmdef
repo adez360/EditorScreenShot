@@ -1,0 +1,14 @@
+{
+  "name": "com.adez360.editorscreenshot.Editor",
+  "references": [
+    "com.adez360.editorscreenshot"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "defineConstraints": [],
+  "optionalUnityReferences": []
+}

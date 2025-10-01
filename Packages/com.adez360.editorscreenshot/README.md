@@ -1,0 +1,1 @@
+# com.adez360.editorscreenshot by yucho

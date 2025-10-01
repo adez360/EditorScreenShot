@@ -1,0 +1,16 @@
+{
+  "name": "com.adez360.editorscreenshot",
+  "displayName": "com.adez360.editorscreenshot",
+  "version": "0.0.1",
+  "description": "A Unity Editor extension for capturing and saving screenshots directly from the editor.",
+  "dependencies": {},
+  "gitDependencies": {},
+  "vpmDependencies": {},
+  "author": {
+    "name": "adez360",
+    "email": "admin@adez360.com"
+  },
+  "legacyFolders": {},
+  "legacyFiles": {},
+  "localPath": "E:\\UnityPackages\\Packages\\com.adez360.editorscreenshot"
+}
