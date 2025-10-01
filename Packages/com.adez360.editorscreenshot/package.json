@@ -1,15 +1,18 @@
 {
   "name": "com.adez360.editorscreenshot",
-  "displayName": "com.adez360.editorscreenshot",
+  "displayName": "Editor ScreenShot",
   "version": "1.0.0",
+  "unity": "2022.3",
   "description": "A Unity Editor extension for capturing and saving screenshots directly from the editor.",
+  "vrchatVersion": "2022.1.1",
+  "author": {
+    "name": "adez360",
+    "email": "admin@adez360.com",
+    "url": "https://github.com/adez360"
+  },
   "dependencies": {},
   "gitDependencies": {},
   "vpmDependencies": {},
-  "author": {
-    "name": "adez360",
-    "email": "admin@adez360.com"
-  },
   "legacyFolders": {},
   "legacyFiles": {},
   "localPath": "E:\\UnityPackages\\Packages\\com.adez360.editorscreenshot"
