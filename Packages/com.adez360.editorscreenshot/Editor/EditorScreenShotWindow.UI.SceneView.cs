@@ -6,23 +6,83 @@ public partial class EditorScreenShotWindow
 {
     void DrawSceneViewOverlaySettings()
     {
-        _showSafeFrame = EditorGUILayout.ToggleLeft(Loc.T("ShowSafeFrame"), _showSafeFrame);
+        // 顯示參考線
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.LabelField(Loc.T("ShowSafeFrame"), GUILayout.Width(120));
+            _showSafeFrame = GUILayout.Toggle(_showSafeFrame, "", GUILayout.Width(20));
+            GUILayout.FlexibleSpace();
+        }
+
         using (new EditorGUI.DisabledScope(!_showSafeFrame))
         {
-            _sfOnlyWhenTarget = EditorGUILayout.ToggleLeft(Loc.T("SFOnlyTarget"), _sfOnlyWhenTarget);
+
+            // 三分線
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("SFThirds"), GUILayout.Width(120));
+                _sfThirds = GUILayout.Toggle(_sfThirds, "", GUILayout.Width(20));
+                GUILayout.FlexibleSpace();
+            }
+
+            // 對角線
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("SFDiagonals"), GUILayout.Width(120));
+                _sfDiagonals = GUILayout.Toggle(_sfDiagonals, "", GUILayout.Width(20));
+                GUILayout.FlexibleSpace();
+            }
+
+            // 中心十字
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("SFCenter"), GUILayout.Width(120));
+                _sfCenterCross = GUILayout.Toggle(_sfCenterCross, "", GUILayout.Width(20));
+                GUILayout.FlexibleSpace();
+            }
 
             GUILayout.Space(4);
-            _sfThirds = EditorGUILayout.ToggleLeft(Loc.T("SFThirds"), _sfThirds);
-            _sfDiagonals = EditorGUILayout.ToggleLeft(Loc.T("SFDiagonals"), _sfDiagonals);
-            _sfCenterCross = EditorGUILayout.ToggleLeft(Loc.T("SFCenter"), _sfCenterCross);
 
-            GUILayout.Space(4);
-            _sfTitleSafe = EditorGUILayout.Slider(Loc.T("TitleSafe"), _sfTitleSafe, 0.5f, 0.98f);
+            // Title Safe %
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("TitleSafe"), GUILayout.Width(120));
+                _sfTitleSafe = EditorGUILayout.Slider(_sfTitleSafe, 0.5f, 0.98f);
+            }
 
-            GUILayout.Space(4);
-            _sfLineWidth = EditorGUILayout.Slider(Loc.T("LineWidth"), _sfLineWidth, 1f, 6f);
-            _sfLineColor = EditorGUILayout.ColorField(Loc.T("LineColor"), _sfLineColor);
-            _sfMaskAlpha = EditorGUILayout.Slider(Loc.T("MaskOpacity"), _sfMaskAlpha, 0f, 0.85f);
+            // 線寬
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("LineWidth"), GUILayout.Width(120));
+                _sfLineWidth = EditorGUILayout.Slider(_sfLineWidth, 1f, 6f);
+            }
+
+            // 線色
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("LineColor"), GUILayout.Width(120));
+                _sfLineColor = EditorGUILayout.ColorField(_sfLineColor);
+            }
+
+            // 遮罩透明度
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("MaskOpacity"), GUILayout.Width(120));
+                _sfMaskAlpha = EditorGUILayout.Slider(_sfMaskAlpha, 0f, 0.85f);
+            }
+        }
+
+        // 說明框
+        GUILayout.Space(8);
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            var helpStyle = new GUIStyle(EditorStyles.label)
+            {
+                wordWrap = true,
+                fontSize = 11,
+                normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
+            };
+            EditorGUILayout.LabelField(Loc.T("SafeFrameTip"), helpStyle);
         }
     }
 }

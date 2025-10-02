@@ -1,94 +1,79 @@
-# VPM Package Template
+# Editor ScreenShot
 
-Starter for making Packages, including automation for building and publishing them.
+A Unity Editor extension for quickly capturing and saving screenshots from the Scene View or Game View. Supports hotkeys, Freecam mode, and multi-language interface.
 
-Once you're all set up, you'll be able to push changes to this repository and have .zip and .unitypackage versions automatically generated, and a listing made which works in the VPM for delivering updates for this package. If you want to make a listing with a variety of packages, check out our [template-package-listing](https://github.com/vrchat-community/template-package-listing) repo.
+## 🌍 Language / 語言選擇
 
-## ▶ Getting Started
+- 🇺🇸 [English](README.md) (Current)
+- 🇹🇼 [繁體中文](docs/README-zh-TW.md)
+- 🇯🇵 [日本語](docs/README-ja.md)
 
-* Press [![Use This Template](https://user-images.githubusercontent.com/737888/185467681-e5fdb099-d99f-454b-8d9e-0760e5a6e588.png)](https://github.com/vrchat-community/template-package/generate)
-to start a new GitHub project based on this template.
-  * Choose a fitting repository name and description.
-  * Set the visibility to 'Public'. You can also choose 'Private' and change it later.
-  * You don't need to select 'Include all branches.'
-* Clone this repository locally using Git.
-  * If you're unfamiliar with Git and GitHub, [visit GitHub's documentation](https://docs.github.com/en/get-started/quickstart/git-and-github-learning-resources) to learn more.
-* Add the folder to Unity Hub and open it as a Unity Project.
-* After opening the project, wait while the VPM resolver is downloaded and added to your project.
-  * This gives you access to the VPM Package Maker and Package Resolver tools.
+---
 
-## 🚇 Migrating Assets Package
-Full details at [Converting Assets to a VPM Package](https://vcc.docs.vrchat.com/guides/convert-unitypackage)
+## Quick Start
 
-## ✏️ Working on Your Package
+1. Install via VPM or import the latest `.unitypackage` into your Unity project.
+2. Open the tool from `Window > Editor ScreenShot` or use the default hotkey `Ctrl+Alt+E`.
+3. Press `P` to capture a screenshot. Use `O` to toggle scene sync, and `R` for Freecam mode in Play Mode.
 
-* Delete the "Packages/com.vrchat.demo-template" directory or reuse it for your own package.
-  * If you reuse the package, don't forget to rename it and add generated meta files to your repository!
-* Update the `.gitignore` file in the "Packages" directory to include your package.
-  * For example, change `!com.vrchat.demo-template` to `!com.username.package-name`.
-  * `.gitignore` files normally *exclude* the contents of your "Packages" directory. This `.gitignore` in this template show how to *include* the demo package. You can easily change this out for your own package name.
-* Open the Unity project and work on your package's files in your favorite code editor.
-* When you're ready, commit and push your changes.
-* Once you've set up the automation as described below, you can easily publish new versions.
+## Installation Guide
 
-## 🤖 Setting up the Automation
+### Method 1: VPM Installation
+1. Add this package repository to VCC
+2. Search for "Editor ScreenShot" in VPM
+3. Click to install
 
-Create a repository variable with the name and value described below.
-For details on how to create repository variables, see [Creating Configuration Variables for a Repository](https://docs.github.com/en/actions/learn-github-actions/variables#creating-configuration-variables-for-a-repository).
-Make sure you are creating a **repository variable**, and not a **repository secret**.
+### Method 2: Manual Installation
+1. Download the latest `.unitypackage` file
+2. Import the package in Unity
+3. Restart Unity Editor
 
-* `PACKAGE_NAME`: the name of your package, like `com.vrchat.demo-template`.
+## Usage Guide
 
-Finally, go to the "Settings" page for your repo, then choose "Pages", and look for the heading "Build and deployment". Change the "Source" dropdown from "Deploy from a branch" to "GitHub Actions".
+### Basic Operations
+- **O Key**: Toggle scene sync
+- **P Key**: Capture current frame screenshot
+- **Ctrl+Alt+E**: Open editor screenshot tool panel
 
-That's it!
-Some other notes:
-* We highly recommend you keep the existing folder structure of this template.
-  * The root of the project should be a Unity project.
-  * Your packages should be in the "Packages" directory.
-  * If you deviate from this folder structure, you'll need to update the paths that assume your package is in the "Packages" directory on lines 24, 38, 41 and 57.
-* If you want to store and generate your web files in a folder other than "Website" in the root, you can change the `listPublicDirectory` item [here in build-listing.yml](.github/workflows/build-listing.yml#L17).
+### Play Mode Camera Controls
+- **WASD**: Move forward/backward/left/right
+- **Q/E**: Move up/down
+- **Z/X/C**: Camera roll control
+- **Right Mouse**: Hold and drag to look around
 
-## 🎉 Publishing a Release
+### Lock Mode
+- Press **R** to toggle Freecam lock mode
+- When locked, camera movement is restricted for stable positioning
+- Useful for precise camera placement and consistent shots
 
-You can make a release by running the [Build Release](.github/workflows/release.yml) action. The version specified in your `package.json` file will be used to define the version of the release.
+### Reference Lines
+- Enable reference lines in the tool panel
+- Use grid lines to align objects and maintain proper framing
+- Toggle different reference line types (rule of thirds, center lines, etc.)
 
-## 📃 Rebuilding the Listing
+## Features
 
-Whenever you make a change to a release - manually publishing it, or manually creating, editing or deleting a release, the [Build Repo Listing](.github/workflows/build-listing.yml) action will make a new index of all the releases available, and publish them as a website hosted fore free on [GitHub Pages](https://pages.github.com/). This listing can be used by the VPM to keep your package up to date, and the generated index page can serve as a simple landing page with info for your package. The URL for your package will be in the format `https://username.github.io/repo-name`.
+- 🎯 **One-click Screenshot**: Quickly capture Scene View or Game View screenshots
+- 🎮 **Runtime Support**: Use screenshot functionality in Play Mode
+- 📁 **Auto Save**: Screenshots automatically saved to specified folder
+- ⌨️ **Hotkey Support**: Customizable hotkey operations
+- 🌐 **Multi-language**: Supports Traditional Chinese and English interface
+- 🎨 **Freecam Mode**: Provides free camera functionality
 
-## 🏠 Customizing the Landing Page (Optional)
+## System Requirements
 
-The action which rebuilds the listing also publishes a landing page. The source for this page is in `Website/index.html`. The automation system uses [Scriban](https://github.com/scriban/scriban) to fill in the objects like `{{ this }}` with information from the latest release's manifest, so it will stay up-to-date with the name, id and description that you provide there. You are welcome to modify this page however you want - just use the existing `{{ template.objects }}` to fill in that info wherever you like. The entire contents of your "Website" folder are published to your GitHub Page each time.
+- Unity 2022.3 or higher
+- VRChat SDK 3.0 or higher (if used for VRChat projects)
 
-## ⌨️ 快捷键说明
+## Contributing
 
-### 编辑器快捷键
-- **O键**：切换场景同步开关
-- **P键**：捕获当前帧截图
-- **Ctrl+Alt+E**：打开编辑器截图工具面板
+Welcome to submit Issues and Pull Requests to improve this package!
 
-### 运行时快捷键（Play Mode）
-- **O键**：切换场景同步
-- **P键**：捕获截图
-- **R键**：切换Freecam锁定模式
+## License
 
-### 快捷键配置
-1. **全局快捷键**：在Unity编辑器中，快捷键在Scene View和Game View中都有效
-2. **运行时快捷键**：需要在场景中添加`ESSPlayHotkeys`组件才能使用
-3. **自定义快捷键**：可以在`Edit > Shortcuts`菜单中修改快捷键设置
-4. **组件配置**：`ESSPlayHotkeys`组件允许自定义按键设置和启用条件
+This package is licensed under the MIT License.
 
-## 💻 Technical Stuff
+---
 
-You are welcome to make your own changes to the automation process to make it fit your needs, and you can create Pull Requests if you have some changes you think we should adopt. Here's some more info on the included automation:
-
-### Build Release Action
-[release.yml](/.github/workflows/release.yml)
-
-This is a composite action combining a variety of existing GitHub Actions and some shell commands to create both a .zip of your Package and a .unitypackage. It creates a release which is named for the `version` in the `package.json` file found in your target Package, and publishes the zip, the unitypackage and the package.json file to this release.
-
-### Build Repo Listing
-[build-listing.yml](.github/workflows/build-listing.yml)
-
-This is a composite action which builds a vpm-compatible [Repo Listing](https://vcc.docs.vrchat.com/vpm/repos) based on the releases you've created. In order to find all your releases and combine them into a listing, it checks out [another repository](https://github.com/vrchat-community/package-list-action) which has a [Nuke](https://nuke.build/) project which includes the VPM core lib to have access to its types and methods. This project will be expanded to include more functionality in the future - for now, the action just calls its `BuildRepoListing` target.
+**More Information**  
+GitHub: [https://github.com/adez360/EditorScreenShot](https://github.com/adez360/EditorScreenShot)

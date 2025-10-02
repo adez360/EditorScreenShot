@@ -38,7 +38,6 @@ public partial class EditorScreenShotWindow : EditorWindow
     int _jpgQuality = 95;
     string _outDir;
     bool _pngKeepAlpha = true;        // transparent background for PNG
-    bool _openAfterSave = false;
     string _lastSavedPath = null;
 
     string _fileNameTemplate = "{scene}_{yyyyMMdd_HHmmss}";
@@ -59,7 +58,6 @@ public partial class EditorScreenShotWindow : EditorWindow
     float _sfLineWidth      = 2f;
     Color _sfLineColor      = new Color(1f, 1f, 1f, 0.9f);
     float _sfMaskAlpha      = 0.35f;
-    bool  _sfOnlyWhenTarget = false;
 
     Dictionary<string, float> _speedFieldSnapshot;
 
@@ -77,6 +75,9 @@ public partial class EditorScreenShotWindow : EditorWindow
         var w = GetWindow<EditorScreenShotWindow>(Loc.T("PanelTitle"));
         w.titleContent = new GUIContent(Loc.T("PanelTitle"));
         w.minSize = new Vector2(420, 520);
+        
+        // 自動創建 EditorScreenShot 物件和相機
+        EnsureEditorScreenShotSetup();
     }
 
     // ───────── Lifecycle
@@ -88,7 +89,6 @@ public partial class EditorScreenShotWindow : EditorWindow
         _png = EditorPrefs.GetBool("ESS.PNG", true);
         _jpgQuality = EditorPrefs.GetInt("ESS.JPGQ", 95);
         _pngKeepAlpha = EditorPrefs.GetBool("ESS.PNGAlpha", true);
-        _openAfterSave = EditorPrefs.GetBool("ESS.OpenAfter", false);
         _lang = (Lang)EditorPrefs.GetInt("ESS.Lang", (int)Loc.GetSystemDefaultLanguage());
         _lastSavedPath = EditorPrefs.GetString("ESS.LastPath", null);
         _fileNameTemplate = EditorPrefs.GetString("ESS.FNameTpl", "{scene}_{yyyyMMdd_HHmmss}");
@@ -102,15 +102,21 @@ public partial class EditorScreenShotWindow : EditorWindow
         _sfLineWidth = EditorPrefs.GetFloat("ESS.SF.LW", 2f);
         _sfLineColor = LoadColor("ESS.SF.Color", new Color(1,1,1,0.9f));
         _sfMaskAlpha = EditorPrefs.GetFloat("ESS.SF.Mask", 0.35f);
-        _sfOnlyWhenTarget = EditorPrefs.GetBool("ESS.SF.OnlyTarget", false);
 
         Loc.Language = _lang;
         SceneView.duringSceneGui += OnSceneGUI; // also for local P/O hotkeys
 
         // Listen to PlayMode changes to sync camera refs
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-        // Try to get a camera on first enable
-        EditorApplication.delayCall += () => { if (this) SyncCameraRefs(true); };
+        
+        // 檢測並確保 EditorScreenShot 設定存在
+        EditorApplication.delayCall += () => { 
+            if (this) {
+                EnsureEditorScreenShotSetup();
+                SyncCameraRefs(true); 
+            }
+        };
+        
     }
 
     void OnDisable()
@@ -120,7 +126,6 @@ public partial class EditorScreenShotWindow : EditorWindow
         EditorPrefs.SetBool("ESS.PNG", _png);
         EditorPrefs.SetInt("ESS.JPGQ", _jpgQuality);
         EditorPrefs.SetBool("ESS.PNGAlpha", _pngKeepAlpha);
-        EditorPrefs.SetBool("ESS.OpenAfter", _openAfterSave);
         EditorPrefs.SetInt("ESS.Lang", (int)_lang);
         EditorPrefs.SetString("ESS.FNameTpl", _fileNameTemplate);
         EditorPrefs.SetInt("ESS.RTMSAA", _rtMSAA);
@@ -134,7 +139,6 @@ public partial class EditorScreenShotWindow : EditorWindow
         EditorPrefs.SetFloat("ESS.SF.LW", _sfLineWidth);
         SaveColor("ESS.SF.Color", _sfLineColor);
         EditorPrefs.SetFloat("ESS.SF.Mask", _sfMaskAlpha);
-        EditorPrefs.SetBool("ESS.SF.OnlyTarget", _sfOnlyWhenTarget);
 
         SceneView.duringSceneGui -= OnSceneGUI;
         if (_sceneSyncOn) ToggleSceneSync(false);
@@ -176,8 +180,6 @@ public partial class EditorScreenShotWindow : EditorWindow
             {
                 GUILayout.Space(4);
                 DrawCameraRow();
-                GUILayout.Space(4);
-                DrawLockTargetRow();
                 GUILayout.Space(4);
                 DrawLensBlockMerged(); // FOV / Physical / Fisheye
             }
@@ -235,27 +237,116 @@ public partial class EditorScreenShotWindow : EditorWindow
 
     void SyncCameraRefs(bool preferMain)
     {
-        Camera chosen = _cam;
-        if (preferMain && (!chosen || chosen != Camera.main))
-            chosen = Camera.main ? Camera.main : chosen;
-
-        if (!chosen && Camera.allCamerasCount > 0)
-        {
-            var cams = Camera.allCameras;
-            chosen = cams != null && cams.Length > 0 ? cams[0] : null;
-        }
-
-        _cam = chosen;
-        _freecam = _cam ? _cam.GetComponent<Freecam>() : null;
-        _fisheye = _cam ? _cam.GetComponent<FisheyeImageEffect>() : null;
-        if (_freecam) SnapshotFreecamSpeeds();
+        // 只使用 EditorScreenShot 專用相機
+        Camera editorCamera = FindEditorScreenShotCamera();
         
-        // Ensure Scene Sync uses correct camera
-        if (_sceneSyncOn && _sceneSync && _cam)
+        if (editorCamera != null)
         {
-            _sceneSync.targetCam = _cam;
-            _sceneSync.freecamController = _freecam;
+            _cam = editorCamera;
+            _freecam = _cam.GetComponent<Freecam>();
+            _fisheye = _cam.GetComponent<FisheyeImageEffect>();
+            if (_freecam) SnapshotFreecamSpeeds();
+            
+            // Ensure Scene Sync uses correct camera
+            if (_sceneSyncOn && _cam)
+            {
+                // 重新獲取 SceneSync 組件引用，防止引用已銷毀的物件
+                _sceneSync = _cam.GetComponent<ESSSceneSync>();
+                if (_sceneSync)
+                {
+                    // 確保組件已啟用
+                    if (!_sceneSync.enabled)
+                    {
+                        _sceneSync.enabled = true;
+                        EditorUtility.SetDirty(_sceneSync);
+                        Debug.Log("[EditorScreenShot] 已啟用 ESSSceneSync 組件");
+                    }
+                    
+                _sceneSync.targetCam = _cam;
+                _sceneSync.freecamController = _freecam;
+                }
+            }
         }
+        else
+        {
+            // 如果沒有找到專用相機，清空所有引用
+            _cam = null;
+            _freecam = null;
+            _fisheye = null;
+            _sceneSync = null;
+        }
+    }
+    
+    Camera FindEditorScreenShotCamera()
+    {
+        // 直接查找名為 "EditorScreenShot" 的相機
+        Camera[] allCameras = Camera.allCameras;
+        foreach (Camera cam in allCameras)
+        {
+            if (cam.name == "EditorScreenShot")
+            {
+                // 驗證相機是否有效且未被破壞
+                if (cam.gameObject != null)
+                {
+                    // 確保相機有必要的組件
+                    ValidateEditorCamera(cam);
+                    return cam;
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    void ValidateEditorCamera(Camera camera)
+    {
+        if (camera == null) return;
+        
+        bool needsRepair = false;
+        
+        // 檢查相機是否有必要的組件（Prefab應該已經配置好）
+        if (!camera.GetComponent<Freecam>())
+        {
+            Debug.LogWarning("[EditorScreenShot] 相機缺少 Freecam 組件，請檢查 Prefab 設定");
+            needsRepair = true;
+        }
+        
+        if (!camera.GetComponent<FisheyeImageEffect>())
+        {
+            Debug.LogWarning("[EditorScreenShot] 相機缺少 FisheyeImageEffect 組件，請檢查 Prefab 設定");
+            needsRepair = true;
+        }
+        
+        if (!camera.GetComponent<ESSSceneSync>())
+        {
+            Debug.LogWarning("[EditorScreenShot] 相機缺少 ESSSceneSync 組件，請檢查 Prefab 設定");
+            needsRepair = true;
+        }
+        
+        // 檢查相機設定
+        if (camera.nearClipPlane != 0.01f)
+        {
+            Debug.LogWarning("[EditorScreenShot] 相機近裁剪面設定不正確 (當前: " + camera.nearClipPlane + ", 應為: 0.01)");
+            needsRepair = true;
+        }
+        
+        if (camera.tag != "MainCamera")
+        {
+            Debug.LogWarning("[EditorScreenShot] 相機標籤不正確 (當前: " + camera.tag + ", 應為: MainCamera)");
+            needsRepair = true;
+        }
+        
+        if (needsRepair)
+        {
+            Debug.Log("[EditorScreenShot] 請點擊「修復相機」按鈕來修復這些問題");
+        }
+    }
+    
+    void RepairEditorCamera(Camera camera)
+    {
+        // 此方法已不再使用，修復功能改為刪除並重新創建相機
+        // 保留此方法以防其他地方調用
+        Debug.Log("[EditorScreenShot] RepairEditorCamera 已棄用，請使用刪除並重新創建的方式");
     }
 
     void DrawTopBar()
@@ -308,14 +399,52 @@ public partial class EditorScreenShotWindow : EditorWindow
                 GUI.backgroundColor = prev;
             }
 
-            // Add folder icon to open folder button
-            Texture2D folderIcon = EditorGUIUtility.IconContent("Folder").image as Texture2D;
-            if (GUILayout.Button(new GUIContent(Loc.T("OpenFolder"), folderIcon), GUILayout.Height(24), GUILayout.Width(0), GUILayout.ExpandWidth(true)))
+            // 鎖定物件按鈕
+            using (new EditorGUI.DisabledScope(_cam == null || _freecam == null || !Application.isPlaying))
             {
-                if (!string.IsNullOrEmpty(_lastSavedPath) && File.Exists(_lastSavedPath))
-                    EditorUtility.RevealInFinder(_lastSavedPath);
+                bool hasTarget = _freecam && _freecam.lockTarget;
+                bool isActive = hasTarget && _freecam.LockActive;
+                Color prevColor = GUI.backgroundColor;
+                
+                string buttonText;
+                if (!Application.isPlaying)
+                {
+                    // 編輯模式下顯示"僅播放模式"
+                    buttonText = Loc.T("PlayModeOnly");
+                    GUI.backgroundColor = new Color(0.45f, 0.45f, 0.45f); // 灰色 - 不可用
+                }
                 else
-                    EditorUtility.RevealInFinder(_outDir);
+                {
+                    // 播放模式下的正常狀態
+                    GUI.backgroundColor = isActive 
+                        ? new Color(0.23f, 0.65f, 0.42f)  // 綠色 - 已鎖定
+                        : (hasTarget 
+                            ? new Color(0.85f, 0.55f, 0.15f)  // 橙色 - 有目標但未鎖定
+                            : new Color(0.45f, 0.45f, 0.45f)); // 灰色 - 無目標
+                    
+                    buttonText = isActive ? Loc.T("Locking") : (hasTarget ? Loc.T("Unlocked") : Loc.T("NoTarget"));
+                }
+                
+                if (GUILayout.Button(buttonText, GUILayout.Height(24), GUILayout.Width(0), GUILayout.ExpandWidth(true)))
+                {
+                    if (hasTarget) 
+                    { 
+                        bool newLockState = !_freecam.lockLookAt;
+                        _freecam.lockLookAt = newLockState;
+                        
+                        // 當鎖定功能開啟時，自動關閉場景同步
+                        if (newLockState && _sceneSyncOn)
+                        {
+                            ToggleSceneSync(false);
+                            Debug.Log("[EditorScreenShot] 鎖定功能開啟，已自動關閉場景同步");
+                        }
+                    }
+                    else 
+                    { 
+                        EditorUtility.DisplayDialog(Loc.T("LockDialog"), Loc.T("SelectTargetFirst"), Loc.T("OK")); 
+                    }
+                }
+                GUI.backgroundColor = prevColor;
             }
         }
     }
@@ -361,7 +490,18 @@ public partial class EditorScreenShotWindow : EditorWindow
             if (!_cam) { _sceneSyncOn = false; return; }
 
             _sceneSync = _cam.GetComponent<ESSSceneSync>();
-            if (!_sceneSync) _sceneSync = _cam.gameObject.AddComponent<ESSSceneSync>();
+            if (!_sceneSync)
+            {
+                Debug.LogError("[EditorScreenShot] 相機上缺少 ESSSceneSync 組件，請檢查 Prefab 設定");
+                return;
+            }
+
+            // 當場景同步開啟時，自動關閉鎖定功能
+            if (_freecam && _freecam.lockLookAt)
+            {
+                _freecam.lockLookAt = false;
+                Debug.Log("[EditorScreenShot] 場景同步開啟，已自動關閉鎖定功能");
+            }
 
             Behaviour brain = _cam.GetComponent("CinemachineBrain") as Behaviour;
             _sceneSync.Begin(_cam, _freecam, brain);
@@ -386,11 +526,12 @@ public partial class EditorScreenShotWindow : EditorWindow
             float fov = sv != null ? sv.cameraSettings.fieldOfView : (_cam ? _cam.fieldOfView : 60f);
             float orthoSize = sv != null ? sv.size : (_cam ? _cam.orthographicSize : 5f);
 #endif
-            if (_sceneSync) _sceneSync.End();
+            if (_sceneSync != null) _sceneSync.End();
 #if UNITY_EDITOR
             PersistPoseAfterSceneSync(pos, rot, ortho, fov, orthoSize);
 #endif
             _sceneSyncOn = false;
+            _sceneSync = null; // 清空引用
         }
 #else
         _sceneSyncOn = false;
@@ -401,41 +542,142 @@ public partial class EditorScreenShotWindow : EditorWindow
     void DrawStatusBlock()
     {
         var label = new GUIStyle(EditorStyles.label) { richText = true, fontSize = 12 };
-        string spd = _freecam ? _freecam.CurrentSpeed.ToString("0.00") : "N/A";
-        GUILayout.Label($"{Loc.T("Status")}:  <color=#59FFA6>{Loc.T("Speed")} {spd}</color>", label);
 
-        GUILayout.Space(4);
+        // 狀態
         using (new EditorGUILayout.HorizontalScope())
         {
-            bool hasFreecam = _freecam != null;
-            bool hasTarget = hasFreecam && _freecam.lockTarget;
-            bool active = hasFreecam && _freecam.LockActive;
-
-            Color prev = GUI.backgroundColor;
-            GUI.backgroundColor = active
-                ? new Color(0.23f, 0.65f, 0.42f)
-                : (hasTarget ? new Color(0.85f, 0.55f, 0.15f)
-                             : new Color(0.45f, 0.45f, 0.45f));
-
-            using (new EditorGUI.DisabledScope(!hasFreecam))
+            EditorGUILayout.LabelField(Loc.T("Status"), GUILayout.Width(120));
+            Color prevColor = GUI.color;
+            
+            // 檢查相機和所有必要組件是否存在
+            bool cameraOk = _cam != null;
+            bool freecamOk = _cam != null && _cam.GetComponent<Freecam>() != null;
+            bool fisheyeOk = _cam != null && _cam.GetComponent<FisheyeImageEffect>() != null;
+            bool sceneSyncOk = _cam != null && _cam.GetComponent<ESSSceneSync>() != null;
+            bool displayConflict = _cam != null && HasDisplayConflict(_cam);
+            
+            bool allComponentsOk = cameraOk && freecamOk && fisheyeOk && sceneSyncOk;
+            bool needsRepair = !allComponentsOk || displayConflict;
+            
+            if (!cameraOk)
             {
-                string btnText = active
-                    ? $"{Loc.T("LockBtnOn")}" + (hasTarget ? $" ({_freecam.lockTarget.name})" : "")
-                    : (hasTarget ? $"{Loc.T("LockBtnOff")} ({_freecam.lockTarget.name})"
-                                 : $"{Loc.T("LockBtnNoTarget")}");
-                if (GUILayout.Button(btnText, GUILayout.Height(22), GUILayout.Width(0), GUILayout.ExpandWidth(true)))
+                GUI.color = Color.red;
+                EditorGUILayout.LabelField(Loc.T("NoCamera"), EditorStyles.boldLabel);
+            }
+            else if (!allComponentsOk)
+            {
+                GUI.color = Color.yellow;
+                string missingComponents = "";
+                if (!freecamOk) missingComponents += "Freecam ";
+                if (!fisheyeOk) missingComponents += "Fisheye ";
+                if (!sceneSyncOk) missingComponents += "SceneSync ";
+                EditorGUILayout.LabelField($"{Loc.T("MissingComponents")}: {missingComponents.Trim()}", EditorStyles.boldLabel);
+            }
+            else if (displayConflict)
+            {
+                GUI.color = Color.yellow;
+                EditorGUILayout.LabelField(Loc.T("DisplayConflict"), EditorStyles.boldLabel);
+            }
+            else
+            {
+                GUI.color = Color.green;
+                EditorGUILayout.LabelField(Loc.T("Normal"), EditorStyles.boldLabel);
+            }
+            
+            GUI.color = prevColor;
+            
+            GUILayout.FlexibleSpace();
+            
+            // 修復按鈕
+            using (new EditorGUI.DisabledScope(!needsRepair))
+            {
+                if (GUILayout.Button(Loc.T("Repair"), GUILayout.Height(20), GUILayout.Width(50)))
                 {
-                    if (hasTarget) _freecam.lockLookAt = !_freecam.lockLookAt;
-                    else EditorUtility.DisplayDialog(Loc.T("Lock"), Loc.T("NoLockTarget"), "OK");
+                    if (displayConflict)
+                    {
+                        // 修復Display衝突
+                        FixDisplayConflicts(_cam);
+                    }
+                    else
+                    {
+                        // 修復組件問題
+                        // 先停止Scene Sync
+                        if (_sceneSyncOn)
+                        {
+                            ToggleSceneSync(false);
+                        }
+                        
+                        // 清空所有引用
+                        _cam = null;
+                        _freecam = null;
+                        _fisheye = null;
+                        _sceneSync = null;
+                        
+                        // 刪除現有的相機並創建新的
+                        Camera[] allCameras = Camera.allCameras;
+                        foreach (Camera cam in allCameras)
+                        {
+                            if (cam != null && cam.name == "EditorScreenShot")
+                            {
+                                Debug.Log("[EditorScreenShot] 刪除現有相機並創建新的");
+                                DestroyImmediate(cam.gameObject);
+                                break;
+                            }
+                        }
+                        
+                        // 創建新的相機
+                        EnsureEditorScreenShotSetup();
+                        SyncCameraRefs(true);
+                        
+                        // 確保ESSSceneSync組件被正確啟用
+                        if (_cam != null)
+                        {
+                            var sceneSync = _cam.GetComponent<ESSSceneSync>();
+                            if (sceneSync != null)
+                            {
+                                sceneSync.enabled = true;
+                                EditorUtility.SetDirty(sceneSync);
+                                Debug.Log("[EditorScreenShot] 已啟用 ESSSceneSync 組件");
+                            }
+                        }
+                    }
+                    
+                    Repaint();
                 }
             }
-            GUI.backgroundColor = prev;
+        }
 
-            GUILayout.Space(8);
-            using (new EditorGUI.DisabledScope(!hasFreecam))
+        // 攝影機速度
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.LabelField(Loc.T("CameraSpeed"), GUILayout.Width(120));
+            string spd = _freecam ? _freecam.CurrentSpeed.ToString("0.00") : "N/A";
+            var speedLabel = new GUIStyle(EditorStyles.label) { richText = true };
+            GUILayout.Label($"<color=#59FFA6>{spd}</color>", speedLabel);
+            
+            GUILayout.FlexibleSpace();
+            
+            // 重置按鈕
+            using (new EditorGUI.DisabledScope(_freecam == null))
             {
-                if (GUILayout.Button($"{Loc.T("ResetSpeed")}", GUILayout.Height(22), GUILayout.Width(0), GUILayout.ExpandWidth(true)))
+                if (GUILayout.Button(Loc.T("Reset"), GUILayout.Height(20), GUILayout.Width(50)))
                     ResetFreecamSpeedRobust();
+            }
+        }
+
+        // 鎖定物件選擇
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.LabelField(Loc.T("LockObject"), GUILayout.Width(120));
+            
+            using (new EditorGUI.DisabledScope(_cam == null))
+            {
+                Transform newT = (Transform)EditorGUILayout.ObjectField(
+                    _freecam ? _freecam.lockTarget : null,
+                    typeof(Transform), true, GUILayout.ExpandWidth(true));
+
+                if (_freecam && newT != _freecam.lockTarget)
+                    _freecam.lockTarget = newT;
             }
         }
     }
@@ -443,47 +685,61 @@ public partial class EditorScreenShotWindow : EditorWindow
     // ───────── Camera row / target / lens
     void DrawCameraRow()
     {
-        var cams = Camera.allCameras;
-        int idx = Mathf.Max(0, Array.IndexOf(cams, _cam));
-        string[] options = new string[cams.Length];
-        for (int i = 0; i < cams.Length; i++) options[i] = cams[i].name;
-
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("Camera"), GUILayout.Width(70));
-            int newIdx = cams.Length == 0 ? -1 : EditorGUILayout.Popup(idx, options);
-            if (cams.Length > 0 && (newIdx != idx || _cam == null))
+            EditorGUILayout.LabelField(Loc.T("Camera"), GUILayout.Width(120));
+            
+            if (_cam != null)
             {
-                _cam = cams[newIdx];
-                _freecam = _cam ? _cam.GetComponent<Freecam>() : null;
-                _fisheye = _cam ? _cam.GetComponent<FisheyeImageEffect>() : null;
-                SnapshotFreecamSpeeds();
+                // 顯示專用相機名稱
+                EditorGUILayout.LabelField(_cam.name, EditorStyles.boldLabel);
+            }
+            else
+            {
+                // 顯示提示訊息
+                EditorGUILayout.LabelField("未找到 EditorScreenShot 相機", EditorStyles.helpBox);
             }
         }
 
+        // Display Target 設定
         using (new EditorGUI.DisabledScope(_cam == null))
-        using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button(Loc.T("ReloadCamera"), GUILayout.Height(20), GUILayout.Width(180)))
-                RefreshCameraDisplayToDisplay1(_cam);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("Display"), GUILayout.Width(120));
+                int currentDisplay = _cam ? _cam.targetDisplay : 0;
+                int newDisplay = EditorGUILayout.IntPopup(currentDisplay, 
+                    new string[] { "Display 1", "Display 2", "Display 3", "Display 4", "Display 5", "Display 6", "Display 7", "Display 8" },
+                    new int[] { 0, 1, 2, 3, 4, 5, 6, 7 }, GUILayout.ExpandWidth(true));
+                
+                if (_cam && newDisplay != currentDisplay)
+                {
+                    _cam.targetDisplay = newDisplay;
+                    EditorUtility.SetDirty(_cam);
+                    Debug.Log($"[EditorScreenShot] 相機 Display Target 已設定為 Display {newDisplay + 1}");
+                }
+                
+                // 檢查並顯示衝突警告
+                if (_cam && HasDisplayConflict(_cam))
+                {
+                    Color prevColor = GUI.backgroundColor;
+                    GUI.backgroundColor = new Color(0.8f, 0.4f, 0.2f); // 橙色背景
+                    Color prevTextColor = GUI.contentColor;
+                    GUI.contentColor = Color.white; // 白字
+                    
+                    if (GUILayout.Button(Loc.T("FixConflict"), GUILayout.Height(20), GUILayout.Width(80)))
+                    {
+                        FixDisplayConflicts(_cam);
+                    }
+                    
+                    GUI.backgroundColor = prevColor;
+                    GUI.contentColor = prevTextColor;
+                }
+            }
         }
     }
 
-    void DrawLockTargetRow()
-    {
-        using (new EditorGUI.DisabledScope(_cam == null))
-        using (new EditorGUILayout.HorizontalScope())
-        {
-            EditorGUILayout.LabelField(Loc.T("LockTarget"), GUILayout.Width(90));
-            Transform newT = (Transform)EditorGUILayout.ObjectField(
-                _freecam ? _freecam.lockTarget : null,
-                typeof(Transform), true);
-
-            if (_freecam && newT != _freecam.lockTarget)
-                _freecam.lockTarget = newT;
-        }
-    }
+    // DrawLockTargetRow 已移除，鎖定物件選項已移動到狀態區塊
 
     void DrawLensBlockMerged()
     {
@@ -494,47 +750,61 @@ public partial class EditorScreenShotWindow : EditorWindow
         }
 
         // FOV
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            EditorGUILayout.LabelField(Loc.T("FOV"), GUILayout.Width(120));
         float fov = _cam.fieldOfView;
-        float newFov = EditorGUILayout.Slider(Loc.T("FOV"), fov, 1f, 179f);
+            float newFov = EditorGUILayout.Slider(fov, 1f, 179f);
         if (!Mathf.Approximately(newFov, fov)) _cam.fieldOfView = newFov;
+        }
 
         // Physical lens (if enabled)
         if (_cam.usePhysicalProperties)
         {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("Focal"), GUILayout.Width(120));
             float focal = _cam.focalLength;
             float sensorH = _cam.sensorSize.y;
-            float newFocal = EditorGUILayout.Slider(Loc.T("Focal"), focal, 1f, 300f);
+                float newFocal = EditorGUILayout.Slider(focal, 1f, 300f);
             if (!Mathf.Approximately(newFocal, focal))
             {
                 _cam.focalLength = newFocal;
                 _cam.fieldOfView = 2f * Mathf.Rad2Deg * Mathf.Atan((0.5f * sensorH) / newFocal);
+                }
             }
         }
 
         // Fisheye
         using (new EditorGUI.DisabledScope(_cam == null))
         {
+            // 魚眼組件應該已經在Prefab中配置好
+            if (!_fisheye) _fisheye = _cam.GetComponent<FisheyeImageEffect>();
+            
+            if (_fisheye)
+        {
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField(Loc.T("Fisheye"), GUILayout.Width(70));
-                bool has = _fisheye && _fisheye.enabled;
-                bool want = EditorGUILayout.ToggleLeft(Loc.T("Enable"), has, GUILayout.Width(80));
-                if (want != has)
-                {
-                    if (want)
+                    EditorGUILayout.LabelField(Loc.T("Fisheye"), GUILayout.Width(120));
+                    float strength = _fisheye.strength;
+                    float newStrength = EditorGUILayout.Slider(strength, 0f, 1f);
+                    
+                    // 當滑桿值改變時更新魚眼強度
+                    if (!Mathf.Approximately(newStrength, strength))
                     {
-                        _fisheye = _cam.GetComponent<FisheyeImageEffect>();
-                        if (!_fisheye) _fisheye = _cam.gameObject.AddComponent<FisheyeImageEffect>();
-                        _fisheye.enabled = true;
+                        _fisheye.strength = newStrength;
+                        // 當強度 < 0.01 時自動關閉魚眼
+                        _fisheye.enabled = newStrength >= 0.01f;
                     }
-                    else if (_fisheye) _fisheye.enabled = false;
                 }
             }
-            if (_fisheye)
+            else
             {
-                EditorGUI.indentLevel++;
-                _fisheye.strength = EditorGUILayout.Slider(Loc.T("Strength"), _fisheye.strength, 0f, 1f);
-                EditorGUI.indentLevel--;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField(Loc.T("Fisheye"), GUILayout.Width(120));
+                    EditorGUILayout.LabelField(Loc.T("ComponentMissing"), EditorStyles.helpBox);
+                }
             }
         }
     }
@@ -542,20 +812,14 @@ public partial class EditorScreenShotWindow : EditorWindow
     // ───────── Output settings
     void DrawOutputTogglesRow()
     {
-        using (new EditorGUILayout.HorizontalScope())
-        {
-            if (_png)
-                _pngKeepAlpha = GUILayout.Toggle(_pngKeepAlpha, Loc.T("Transparent"), GUILayout.Width(160));
-            _openAfterSave = GUILayout.Toggle(_openAfterSave, Loc.T("OpenAfterSave"), GUILayout.Width(160));
-            GUILayout.FlexibleSpace();
-        }
+        // 透明背景選項已移動到格式下面
     }
 
     void DrawResolutionRow()
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("Resolution"), GUILayout.Width(90));
+            EditorGUILayout.LabelField(Loc.T("Resolution"), GUILayout.Width(120));
             string[] names = { Loc.T("UHD_4K_16_9"), Loc.T("FHD_16_9"), Loc.T("QHD_16_9"), Loc.T("HD_16_9"), Loc.T("Square_1_1"), Loc.T("Custom") };
             int sel = (int)_preset, newSel = EditorGUILayout.Popup(sel, names);
             if (newSel != sel) _preset = (AspectPreset)newSel;
@@ -576,7 +840,7 @@ public partial class EditorScreenShotWindow : EditorWindow
         var (cw, ch) = GetCurrentWH();
         using (new EditorGUILayout.HorizontalScope())
         {
-            GUILayout.Space(90); // Align with label width
+            GUILayout.Space(120); // Align with label width
             var label = new GUIStyle(EditorStyles.label) { richText = true };
             GUILayout.Label($"<color=#59FFA6>{cw}x{ch}</color>", label);
         }
@@ -586,15 +850,31 @@ public partial class EditorScreenShotWindow : EditorWindow
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("Format"), GUILayout.Width(90));
+            EditorGUILayout.LabelField(Loc.T("Format"), GUILayout.Width(120));
             _png = GUILayout.Toggle(_png, "PNG", "Button", GUILayout.Width(60));
             bool jpg = GUILayout.Toggle(!_png, "JPEG", "Button", GUILayout.Width(60));
             if (jpg) _png = false;
             GUILayout.FlexibleSpace();
         }
+        
+        // 透明背景選項
+        if (_png)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("TransparentBG"), GUILayout.Width(120));
+                _pngKeepAlpha = GUILayout.Toggle(_pngKeepAlpha, "", GUILayout.Width(20));
+                GUILayout.FlexibleSpace();
+            }
+        }
+        
         if (!_png)
         {
-            _jpgQuality = EditorGUILayout.IntSlider("JPEG Q", _jpgQuality, 1, 100);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(Loc.T("JPEGQuality"), GUILayout.Width(120));
+                _jpgQuality = EditorGUILayout.IntSlider(_jpgQuality, 1, 100);
+            }
         }
     }
 
@@ -602,7 +882,7 @@ public partial class EditorScreenShotWindow : EditorWindow
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("SaveLocation"), GUILayout.Width(90));
+            EditorGUILayout.LabelField(Loc.T("SaveLocation"), GUILayout.Width(120));
             EditorGUILayout.SelectableLabel(_outDir, GUILayout.Height(EditorGUIUtility.singleLineHeight));
             // Add folder icon to browse button
             Texture2D browseIcon = EditorGUIUtility.IconContent("Folder").image as Texture2D;
@@ -618,7 +898,7 @@ public partial class EditorScreenShotWindow : EditorWindow
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("FileNameTemplate"), GUILayout.Width(90));
+            EditorGUILayout.LabelField(Loc.T("FileNameTemplate"), GUILayout.Width(120));
             _fileNameTemplate = EditorGUILayout.TextField(_fileNameTemplate);
         }
     }
@@ -627,7 +907,7 @@ public partial class EditorScreenShotWindow : EditorWindow
     {
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.LabelField(Loc.T("MSAA"), GUILayout.Width(90));
+            EditorGUILayout.LabelField(Loc.T("MSAA"), GUILayout.Width(120));
             int sel = MSAAIndexFrom(_rtMSAA);
             int newSel = EditorGUILayout.Popup(sel, new[] { "1x", "2x", "4x", "8x" }, GUILayout.Width(100));
             _rtMSAA = MSAAValueFrom(newSel);
@@ -661,7 +941,6 @@ public partial class EditorScreenShotWindow : EditorWindow
 
         // Safe frame drawing
         if (!_showSafeFrame) return;
-        if (_sfOnlyWhenTarget && (!_cam || !_freecam || _freecam.lockTarget == null)) return;
         if (e.type != EventType.Repaint) return;
 
         var (tw, th) = GetCurrentWH(); // target output size
@@ -807,13 +1086,17 @@ public partial class EditorScreenShotWindow : EditorWindow
         EditorApplication.delayCall += () =>
         {
             if (_inst == null) return;
-            var cam = _inst._cam != null ? _inst._cam : Camera.main;
+            
+            // 確保使用專用相機
+            _inst.SyncCameraRefs(true);
+            var cam = _inst._cam;
+            
             if (cam == null)
             {
-                EditorUtility.DisplayDialog("Screenshot", "No Camera selected/found.", "OK");
+                EditorUtility.DisplayDialog("Screenshot", Loc.T("NoCamera") + ", " + "Please create camera first.", Loc.T("OK"));
                 return;
             }
-            _inst._cam = cam; // sync window
+            
             var (outW, outH) = _inst.GetCurrentWH();
             _inst.SaveCurrentFrame(outW, outH);
         };
@@ -907,8 +1190,7 @@ public partial class EditorScreenShotWindow : EditorWindow
             File.WriteAllBytes(path, _png ? tex.EncodeToPNG() : tex.EncodeToJPG(Mathf.Clamp(_jpgQuality, 1, 100)));
             _lastSavedPath = path;
 
-            if (_openAfterSave) EditorUtility.OpenWithDefaultApp(path);
-            else EditorUtility.RevealInFinder(path);
+            EditorUtility.RevealInFinder(path);
 
             DestroyImmediate(tex);
         }
@@ -1018,29 +1300,21 @@ public partial class EditorScreenShotWindow : EditorWindow
         _preset = AspectPreset.FHD_16_9; _portrait = false;
         _customW = 1920; _customH = 1080;
         _png = true; _jpgQuality = 95; _pngKeepAlpha = true;
-        _openAfterSave = false; _lastSavedPath = null;
+        _lastSavedPath = null;
         _fileNameTemplate = "{scene}_{yyyyMMdd_HHmmss}";
         _rtMSAA = 1;
 
         _showSafeFrame=true; _sfThirds=true; _sfDiagonals=false; _sfCenterCross=true;
-        _sfTitleSafe=0.90f; _sfLineWidth=2f; _sfLineColor=new Color(1,1,1,0.9f); _sfMaskAlpha=0.8f; _sfOnlyWhenTarget=false;
+        _sfTitleSafe=0.90f; _sfLineWidth=2f; _sfLineColor=new Color(1,1,1,0.9f); _sfMaskAlpha=0.8f;
+        
+        // 重置魚眼效果
+        if (_fisheye)
+        {
+            _fisheye.strength = 0f;
+            _fisheye.enabled = false;
+        }
     }
 
-    void RefreshCameraDisplayToDisplay1(Camera cam)
-    {
-        if (!cam) return;
-        cam.targetDisplay = 0;
-        cam.enabled = false;
-        InternalEditorUtility.RepaintAllViews();
-        EditorApplication.delayCall += () =>
-        {
-            if (!cam) return;
-            cam.enabled = true;
-            EditorUtility.SetDirty(cam);
-            InternalEditorUtility.RepaintAllViews();
-            SceneView.RepaintAll();
-        };
-    }
 
     // ───────── Pref helpers
     static Color LoadColor(string key, Color def)
@@ -1060,4 +1334,289 @@ public partial class EditorScreenShotWindow : EditorWindow
     }
 
     static Color Hex(string hex){ if(ColorUtility.TryParseHtmlString(hex,out var col)) return col; return new Color(0.15f,0.6f,0.35f); }
+
+
+    // ───────── 自動創建 EditorScreenShot 設定 (使用 Prefab)
+    static void EnsureEditorScreenShotSetup()
+    {
+        // 檢查是否已存在 EditorScreenShot 相機
+        Camera[] allCameras = Camera.allCameras;
+        bool cameraExists = false;
+        
+        foreach (Camera cam in allCameras)
+        {
+            if (cam.name == "EditorScreenShot")
+            {
+                cameraExists = true;
+                // 檢查並處理相機衝突
+                HandleCameraConflicts(cam);
+                break;
+            }
+        }
+        
+        if (!cameraExists)
+        {
+            // 載入 Prefab
+            GameObject prefab = LoadEditorScreenShotPrefab();
+            if (prefab != null)
+            {
+                // 實例化 Prefab
+                GameObject prefabInstance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+                if (prefabInstance != null)
+                {
+                    // 確保相機名稱正確
+                    Camera camera = prefabInstance.GetComponent<Camera>();
+                    if (camera != null)
+                    {
+                        // 強制設定相機名稱，覆蓋 Unity 的自動命名
+                        camera.name = "EditorScreenShot";
+                        prefabInstance.name = "EditorScreenShot";
+                        Debug.Log("[EditorScreenShot] 已從 Prefab 自動創建 EditorScreenShot 相機");
+                        
+                        // Prefab應該已經正確配置所有組件
+                        // 確保ESSSceneSync組件被啟用
+                        var sceneSync = prefabInstance.GetComponent<ESSSceneSync>();
+                        if (sceneSync != null)
+                        {
+                            sceneSync.enabled = true;
+                            EditorUtility.SetDirty(sceneSync);
+                            Debug.Log("[EditorScreenShot] 已啟用 ESSSceneSync 組件");
+                        }
+                        
+                        // 標記為髒物件以保存
+                        EditorUtility.SetDirty(camera);
+                        EditorUtility.SetDirty(prefabInstance);
+                        
+                        // 在下一幀再次確保名稱正確（防止 Unity 自動修改）
+                        EditorApplication.delayCall += () => {
+                            if (camera != null && camera.name != "EditorScreenShot")
+                            {
+                                camera.name = "EditorScreenShot";
+                                prefabInstance.name = "EditorScreenShot";
+                                EditorUtility.SetDirty(camera);
+                                EditorUtility.SetDirty(prefabInstance);
+                                Debug.Log("[EditorScreenShot] 已修正相機名稱為 EditorScreenShot");
+                            }
+                        };
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogError("[EditorScreenShot] 無法載入 Prefab，請檢查 EditorScrenShot.prefab 文件是否存在");
+            }
+        }
+    }
+    
+    static void HandleCameraConflicts(Camera editorCamera)
+    {
+        if (editorCamera == null) return;
+        
+        // 檢查是否有其他相機也設為 MainCamera
+        Camera[] allCameras = Camera.allCameras;
+        Camera conflictingCamera = null;
+        
+        foreach (Camera cam in allCameras)
+        {
+            if (cam != editorCamera && cam.tag == "MainCamera")
+            {
+                conflictingCamera = cam;
+                break;
+            }
+        }
+        
+        if (conflictingCamera != null)
+        {
+            Debug.LogWarning($"[EditorScreenShot] 檢測到相機衝突：{conflictingCamera.name} 也設為 MainCamera，請手動修復");
+        }
+        
+        // 確保 EditorScreenShot 相機是唯一的 MainCamera
+        if (editorCamera.tag != "MainCamera")
+        {
+            Debug.LogWarning("[EditorScreenShot] EditorScreenShot 相機標籤不正確，請點擊修復按鈕");
+        }
+        
+        // 確保 EditorScreenShot 相機是啟用的
+        if (!editorCamera.enabled)
+        {
+            Debug.LogWarning("[EditorScreenShot] EditorScreenShot 相機已禁用，請點擊修復按鈕");
+        }
+    }
+    
+    static void RepairCameraConflicts(Camera editorCamera)
+    {
+        if (editorCamera == null) return;
+        
+        // 檢查是否有其他相機也設為 MainCamera
+        Camera[] allCameras = Camera.allCameras;
+        Camera conflictingCamera = null;
+        
+        foreach (Camera cam in allCameras)
+        {
+            if (cam != editorCamera && cam.tag == "MainCamera")
+            {
+                conflictingCamera = cam;
+                break;
+            }
+        }
+        
+        if (conflictingCamera != null)
+        {
+            // 將其他相機的標籤改為 Untagged
+            conflictingCamera.tag = "Untagged";
+            Debug.Log($"[EditorScreenShot] 已將 {conflictingCamera.name} 的標籤改為 Untagged");
+        }
+        
+        // 確保 EditorScreenShot 相機是唯一的 MainCamera
+        if (editorCamera.tag != "MainCamera")
+        {
+            editorCamera.tag = "MainCamera";
+            Debug.Log("[EditorScreenShot] 已設定 EditorScreenShot 相機為 MainCamera");
+        }
+        
+        // 確保 EditorScreenShot 相機是啟用的
+        if (!editorCamera.enabled)
+        {
+            editorCamera.enabled = true;
+            Debug.Log("[EditorScreenShot] 已啟用 EditorScreenShot 相機");
+        }
+    }
+    
+    // ───────── Display Conflict Management
+    bool HasDisplayConflict(Camera editorCamera)
+    {
+        if (editorCamera == null) return false;
+        
+        int targetDisplay = editorCamera.targetDisplay;
+        Camera[] allCameras = Camera.allCameras;
+        
+        foreach (Camera cam in allCameras)
+        {
+            if (cam != editorCamera && cam.enabled && cam.targetDisplay == targetDisplay)
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    void FixDisplayConflicts(Camera editorCamera)
+    {
+        if (editorCamera == null) return;
+        
+        int currentDisplay = editorCamera.targetDisplay;
+        Camera[] allCameras = Camera.allCameras;
+        List<Camera> conflictingCameras = new List<Camera>();
+        
+        // 找出所有使用相同Display的相機
+        foreach (Camera cam in allCameras)
+        {
+            if (cam != editorCamera && cam.enabled && cam.targetDisplay == currentDisplay)
+            {
+                conflictingCameras.Add(cam);
+            }
+        }
+        
+        if (conflictingCameras.Count > 0)
+        {
+            // 彈窗提示用戶選擇修復方式
+            int choice = EditorUtility.DisplayDialogComplex(Loc.T("DisplayConflictRepair"), 
+                string.Format(Loc.T("DetectedCamerasUsingDisplay"), conflictingCameras.Count, currentDisplay + 1) + "\n" +
+                Loc.T("CloseOtherCamerasOrChangeDisplay") + "\n\n" +
+                Loc.T("ChooseRepairMethod"), 
+                Loc.T("CloseOtherCameras"), Loc.T("Cancel"), Loc.T("ChangeDisplayChannel"));
+            
+            if (choice == 0) // 關閉其他相機
+            {
+                // 關閉所有衝突的相機GameObject
+                foreach (Camera cam in conflictingCameras)
+                {
+                    if (cam != null && cam.gameObject != null)
+                    {
+                        cam.gameObject.SetActive(false);
+                        EditorUtility.SetDirty(cam.gameObject);
+                        Debug.Log($"[EditorScreenShot] 已關閉相機物件 {cam.name} 以避免通道衝突");
+                    }
+                }
+                
+                EditorUtility.DisplayDialog(Loc.T("RepairComplete"), 
+                    string.Format(Loc.T("ClosedCamerasCount"), conflictingCameras.Count) + "\n\n" +
+                    Loc.T("NoteCamerasDisabled"), Loc.T("OK"));
+            }
+            else if (choice == 2) // 更改 EditorScreenShot (現在是第三個按鈕)
+            {
+                // 尋找可用的Display
+                int newDisplay = FindAvailableDisplay(editorCamera);
+                if (newDisplay != -1)
+                {
+                    editorCamera.targetDisplay = newDisplay;
+                    EditorUtility.SetDirty(editorCamera);
+                    Debug.Log($"[EditorScreenShot] 已將 EditorScreenShot 相機移動到 Display {newDisplay + 1}");
+                    
+                    EditorUtility.DisplayDialog(Loc.T("RepairComplete"), 
+                        string.Format(Loc.T("MovedToDisplay"), newDisplay + 1), Loc.T("OK"));
+                }
+                else
+                {
+                    EditorUtility.DisplayDialog(Loc.T("RepairFailed"), 
+                        Loc.T("AllDisplaysOccupied"), Loc.T("OK"));
+                }
+            }
+            // choice == 1 為取消，不執行任何操作
+        }
+    }
+    
+    int FindAvailableDisplay(Camera editorCamera)
+    {
+        Camera[] allCameras = Camera.allCameras;
+        bool[] displayUsed = new bool[8]; // Display 0-7
+        
+        // 標記所有被使用的Display
+        foreach (Camera cam in allCameras)
+        {
+            if (cam != editorCamera && cam.enabled)
+            {
+                int display = cam.targetDisplay;
+                if (display >= 0 && display < 8)
+                {
+                    displayUsed[display] = true;
+                }
+            }
+        }
+        
+        // 尋找第一個可用的Display
+        for (int i = 0; i < 8; i++)
+        {
+            if (!displayUsed[i])
+            {
+                return i;
+            }
+        }
+        
+        return -1; // 沒有可用的Display
+    }
+    
+    static GameObject LoadEditorScreenShotPrefab()
+    {
+        // 嘗試從多個可能的路徑載入 Prefab
+        string[] possiblePaths = {
+            "Assets/Packages/com.adez360.editorscreenshot/Runtime/Prefab/EditorScreenShot.prefab",
+            "Packages/com.adez360.editorscreenshot/Runtime/Prefab/EditorScreenShot.prefab"
+        };
+        
+        foreach (string path in possiblePaths)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab != null)
+            {
+                Debug.Log($"[EditorScreenShot] 成功載入 Prefab: {path}");
+                return prefab;
+            }
+        }
+        
+        Debug.LogError("[EditorScreenShot] 無法找到 EditorScreenShot.prefab 文件");
+        return null;
+    }
+    
 }

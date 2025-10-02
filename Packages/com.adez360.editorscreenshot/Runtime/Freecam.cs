@@ -1,4 +1,5 @@
 using UnityEngine;
+using EditorScreenShot.Runtime;
 
 // Force lock cursor + R toggle aim (Legacy Input)
 public class Freecam : MonoBehaviour
@@ -131,7 +132,7 @@ public class Freecam : MonoBehaviour
 
         // ---- Hotkeys ----
         if (Input.GetKeyDown(KeyCode.R)) ToggleLockLook();             // R: toggle aim
-        if (Input.GetKeyDown(KeyCode.P)) EditorShotBridge.RaiseScreenshotRequest();
+        if (Input.GetKeyDown(KeyCode.P)) EditorShotService.Current.Capture();
     }
 
     void LateUpdate()

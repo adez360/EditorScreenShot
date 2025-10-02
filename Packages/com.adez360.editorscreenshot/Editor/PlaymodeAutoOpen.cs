@@ -1,7 +1,5 @@
 using UnityEditor;
 using UnityEngine;
-using UnityEditor;
-using UnityEngine;
 
 // Auto-coordinate SceneSync and Freecam lock targets on PlayMode changes
 // Condition: Control panel window is open (_inst != null)
@@ -54,9 +52,13 @@ static class ESSPlaymodeCoordinator
     static void StartupScanOnce()
     {
         // Simple scan: remove leftover ESSSceneSync/ESSposeOverride from cameras in edit mode
+        // 但保留 EditorScreenShot 相機上的組件
         if (Application.isPlaying) return;
         foreach (var cam in Object.FindObjectsOfType<Camera>())
         {
+            // 跳過 EditorScreenShot 相機，保留其組件
+            if (cam.name == "EditorScreenShot") continue;
+            
             var sync = cam.GetComponent<ESSSceneSync>();
             if (sync) Object.DestroyImmediate(sync);
             var over = cam.GetComponent<ESSposeOverride>();

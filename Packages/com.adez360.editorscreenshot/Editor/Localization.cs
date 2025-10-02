@@ -22,15 +22,10 @@ namespace FreecamPreview
 
             // Big actions / Quick row
             { "CaptureImage",   new[] { "Capture Image", "拍攝截圖", "拍摄截图", "キャプチャ" } },
-            { "OpenFolder",     new[] { "Open Folder", "開啟資料夾", "打开文件夹", "フォルダを開く" } },
-            { "ReloadCamera",   new[] { "Reload Camera", "重新載入相機", "重新加载相机", "カメラを再読み込み" } },
-            { "AlignFromScene", new[] { "Sync Scene View", "同步scene視角", "同步场景视图", "シーンビューを同期" } },
 
             // Groups
-            { "Settings",        new[] { "Settings", "設定", "设置", "設定" } },
             { "CameraSettings",  new[] { "Camera Settings", "相機設定", "相机设置", "カメラ設定" } },
             { "OutputSettings",  new[] { "Output Settings", "輸出設定", "输出设置", "出力設定" } },
-            { "LensAdvanced",    new[] { "Lens (Advanced)", "鏡頭（進階）", "镜头（高级）", "レンズ（詳細）" } },
             { "SceneViewSection",new[] { "Scene View", "Scene View", "场景视图", "シーンビュー" } },
 
             // Scene Sync
@@ -44,8 +39,6 @@ namespace FreecamPreview
             { "Portrait",      new[] { "Portrait", "直式", "竖屏", "縦向き" } },
             { "Format",        new[] { "Format", "格式", "格式", "フォーマット" } },
             { "SaveLocation",  new[] { "Save Location", "儲存位置", "保存位置", "保存先" } },
-            { "Transparent",   new[] { "Transparent BG", "透明背景", "透明背景", "透明背景" } },
-            { "OpenAfterSave", new[] { "Open after save", "存檔後開啟", "保存后打开", "保存後に開く" } },
 
             // Short labels
             { "WidthShort",  new[] { "W", "W", "W", "W" } },
@@ -55,10 +48,8 @@ namespace FreecamPreview
             { "FOV",      new[] { "FOV", "視角", "视角", "視野角" } },
             { "Focal",    new[] { "Focal Length (mm)", "焦距 (mm)", "焦距 (mm)", "焦点距離 (mm)" } },
             { "Fisheye",  new[] { "Fisheye", "魚眼", "鱼眼", "フィッシュアイ" } },
-            { "Enable",   new[] { "Enable", "啟用", "启用", "有効化" } },
-            { "Strength", new[] { "Strength", "強度", "强度", "強さ" } },
 
-            // Scene View overlay (no Action Safe)
+            // Scene View overlay
             { "ShowSafeFrame", new[] { "Show Safe Frame", "顯示參考線", "显示参考线", "セーフフレーム表示" } },
             { "SFThirds",      new[] { "Thirds Grid", "三分線", "三分线", "三分割グリッド" } },
             { "SFDiagonals",   new[] { "Diagonals", "對角線", "对角线", "対角線" } },
@@ -67,7 +58,7 @@ namespace FreecamPreview
             { "LineWidth",     new[] { "Line Width", "線寬", "线宽", "線幅" } },
             { "LineColor",     new[] { "Line Color", "線色", "线色", "線色" } },
             { "MaskOpacity",   new[] { "Mask Opacity", "遮罩透明度", "遮罩透明度", "マスク不透明度" } },
-            { "SFOnlyTarget",  new[] { "Only when target camera/lock", "僅在有目標/目標相機時顯示", "仅在锁定目标/相机时显示", "対象がある時のみ表示" } },
+            { "SafeFrameTip",  new[] { "Try to match the window ratio to the reference frame for better preview accuracy.", "盡可能地讓視窗比例符合參考線邊框，截圖成果會更接近預覽效果。", "尽可能让窗口比例符合参考线边框，截图成果会更接近预览效果。", "ウィンドウの比率をリファレンスフレームに合わせることで、プレビュー精度が向上します。" } },
 
             // Aspect names
             { "UHD_4K_16_9", new[] { "UHD 4K 16:9", "UHD 4K 16:9", "UHD 4K 16:9", "UHD 4K 16:9" } },
@@ -79,14 +70,6 @@ namespace FreecamPreview
 
             // Status / Help
             { "Status",           new[] { "Status", "狀態", "状态", "ステータス" } },
-            { "Speed",            new[] { "Speed", "速度", "速度", "速度" } },
-            { "Lock",             new[] { "Lock", "鎖定", "锁定", "ロック" } },
-            { "LockTarget",       new[] { "Lock Target", "鎖定目標", "锁定目标", "ロック対象" } },
-            { "NoLockTarget",     new[] { "No lock target set.", "尚未設定鎖定目標。", "尚未设置锁定目标。", "ロック対象が未設定です。" } },
-            { "LockBtnOn",        new[] { "Lock: ON", "鎖定：開", "锁定：开", "ロック：ON" } },
-            { "LockBtnOff",       new[] { "Lock: OFF", "鎖定：關", "锁定：关", "ロック：OFF" } },
-            { "LockBtnNoTarget",  new[] { "Lock: OFF (no target)", "鎖定：關（無目標）", "锁定：关（无目标）", "ロック：OFF（対象なし）" } },
-            { "ResetSpeed",       new[] { "Reset Speed", "重設速度", "重置速度", "速度をリセット" } },
             { "Reset",            new[] { "Reset", "重設", "重置", "リセット" } },
             { "KeysHelp",         new[] {
                 "WASD: move | Q/E: up/down | RMB: look (hold) | Shift/Ctrl: sprint/slow | Z/C: roll | X: level | R: toggle aim | O: scene sync | P: screenshot | Ctrl+Shift+E: open panel",
@@ -98,6 +81,44 @@ namespace FreecamPreview
             // Quality
             { "MSAA",             new[] { "RT MSAA", "RT MSAA", "RT MSAA", "RT MSAA" } },
             { "FileNameTemplate", new[] { "File Name", "檔名模板", "文件名模板", "ファイル名テンプレート" } },
+
+            // Status and UI elements
+            { "CameraSpeed",      new[] { "Camera Speed", "攝影機速度", "相机速度", "カメラ速度" } },
+            { "LockObject",       new[] { "Lock Object", "鎖定物件", "锁定对象", "ロック対象" } },
+            { "Display",          new[] { "Display", "Display", "Display", "Display" } },
+            { "Repair",           new[] { "Repair", "修復", "修复", "修復" } },
+            { "Normal",           new[] { "Normal", "正常", "正常", "正常" } },
+            { "NoCamera",         new[] { "No Camera Found", "未找到相機", "未找到相机", "カメラが見つかりません" } },
+            { "MissingComponents",new[] { "Missing Components", "缺少組件", "缺少组件", "コンポーネント不足" } },
+            { "DisplayConflict",  new[] { "Display Conflict", "Display衝突", "Display冲突", "Display衝突" } },
+            { "TransparentBG",    new[] { "Transparent BG", "透明背景", "透明背景", "透明背景" } },
+            { "JPEGQuality",      new[] { "JPEG Quality", "JPEG 品質", "JPEG 质量", "JPEG 品質" } },
+            { "ComponentMissing", new[] { "Component Missing, Click Repair", "組件缺失，請點擊修復", "组件缺失，请点击修复", "コンポーネント不足、修復をクリック" } },
+
+            // Lock object states
+            { "Locking",          new[] { "Locking", "鎖定中", "锁定中", "ロック中" } },
+            { "Unlocked",         new[] { "Unlocked", "未鎖定", "未锁定", "ロック解除" } },
+            { "NoTarget",         new[] { "No Target", "無目標", "无目标", "対象なし" } },
+            { "PlayModeOnly",     new[] { "Play Mode Only", "僅播放模式", "仅播放模式", "プレイモードのみ" } },
+            { "LockDialog",       new[] { "Lock", "鎖定", "锁定", "ロック" } },
+            { "SelectTargetFirst",new[] { "Please select a target object first", "請先選擇要鎖定的物件", "请先选择要锁定的对象", "まず対象オブジェクトを選択してください" } },
+            { "OK",               new[] { "OK", "確定", "确定", "OK" } },
+
+            // Display conflict repair
+            { "DisplayConflictRepair", new[] { "Display Conflict Repair", "Display 衝突修復", "Display 冲突修复", "Display 衝突修復" } },
+            { "DetectedCamerasUsingDisplay", new[] { "Detected {0} cameras using Display {1}", "檢測到 {0} 個相機同時在使用 Display {1}", "检测到 {0} 个相机同时在使用 Display {1}", "{0} 台のカメラが Display {1} を使用中です" } },
+            { "CloseOtherCamerasOrChangeDisplay", new[] { "Close other cameras or change plugin's Display channel", "關閉其他相機或改變插件的Display通道", "关闭其他相机或改变插件的Display通道", "他のカメラを閉じるかプラグインのDisplayチャンネルを変更" } },
+            { "ChooseRepairMethod", new[] { "Choose repair method:", "請選擇修復方式:", "请选择修复方式:", "修復方法を選択してください:" } },
+            { "CloseOtherCameras", new[] { "Close Other Cameras", "關閉其他相機", "关闭其他相机", "他のカメラを閉じる" } },
+            { "Cancel",           new[] { "Cancel", "取消", "取消", "キャンセル" } },
+            { "ChangeDisplayChannel", new[] { "Change Display Channel", "更改display通道", "更改display通道", "Displayチャンネルを変更" } },
+            { "RepairComplete",   new[] { "Repair Complete", "修復完成", "修复完成", "修復完了" } },
+            { "RepairFailed",     new[] { "Repair Failed", "修復失敗", "修复失败", "修復失敗" } },
+            { "ClosedCamerasCount", new[] { "Closed {0} camera objects to avoid channel overlay.", "已關閉 {0} 個相機物件，避免通道覆蓋。", "已关闭 {0} 个相机对象，避免通道覆盖。", "{0} 台のカメラオブジェクトを閉じてチャンネル重複を回避しました。" } },
+            { "NoteCamerasDisabled", new[] { "Note: These camera objects have been disabled and can be manually re-enabled when needed.", "注意：這些相機物件已被禁用，需要時可以手動重新啟用。", "注意：这些相机对象已被禁用，需要时可以手动重新启用。", "注意：これらのカメラオブジェクトは無効化されており、必要に応じて手動で再有効化できます。" } },
+            { "MovedToDisplay",   new[] { "Moved EditorScreenShot camera to Display {0} to avoid channel overlay.", "已將 EditorScreenShot 相機移動到 Display {0}，避免通道覆蓋。", "已将 EditorScreenShot 相机移动到 Display {0}，避免通道覆盖。", "EditorScreenShot カメラを Display {0} に移動してチャンネル重複を回避しました。" } },
+            { "AllDisplaysOccupied", new[] { "All Display channels are occupied and cannot be automatically repaired. Please manually select another Display.", "所有 Display 通道都被占用，無法自動修復。請手動選擇其他 Display。", "所有 Display 通道都被占用，无法自动修复。请手动选择其他 Display。", "すべてのDisplayチャンネルが使用中で自動修復できません。手動で他のDisplayを選択してください。" } },
+            { "FixConflict",      new[] { "Fix Conflict", "修復衝突", "修复冲突", "衝突を修復" } },
         };
 
         /// <summary>
