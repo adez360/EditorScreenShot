@@ -145,7 +145,7 @@ namespace EditorScreenShot
         EditorGUILayout.EndScrollView();
 
         // Window-focused hotkeys (fallback)
-        EditorScreenShotHotkeys.HandleWindowHotkeys(_data);
+        EditorScreenShotHotkeys.HandleWindowHotkeys(_data, PersistPoseAfterSceneSync);
 
         Repaint();
     }
@@ -169,7 +169,7 @@ namespace EditorScreenShot
         if (sv == null) return;
 
         // Handle scene view hotkeys
-        EditorScreenShotHotkeys.HandleSceneViewHotkeys(_data, sv);
+        EditorScreenShotHotkeys.HandleSceneViewHotkeys(_data, sv, PersistPoseAfterSceneSync);
 
         // Safe frame drawing
         if (!_data.showSafeFrame) return;
@@ -268,6 +268,12 @@ namespace EditorScreenShot
             _inst.Repaint();
             SceneView.RepaintAll();
         };
+    }
+
+    // Get the current EditorScreenShotData instance
+    public static EditorScreenShotData GetCurrentData()
+    {
+        return _inst?._data;
     }
 
     public static void CaptureGlobal()
