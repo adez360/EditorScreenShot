@@ -228,4 +228,53 @@ const setTheme = () => {
   packageInfoListingHelp.addEventListener('click', () => {
     addListingToVccHelp.hidden = false;
   });
+
+  // Info Button functionality
+  const infoButton = document.getElementById('infoButton');
+  const infoModal = document.getElementById('infoModal');
+  
+  if (!infoButton || !infoModal) {
+    console.error('Info button or modal not found!', { infoButton, infoModal });
+    return;
+  }
+  
+  const closeButton = infoModal.querySelector('.close-button');
+  const copyUrlBtn = infoModal.querySelector('.copy-url-btn');
+
+  infoButton.addEventListener('click', () => {
+    console.log('Info button clicked!'); // Debug log
+    infoModal.classList.remove('hidden');
+  });
+
+  closeButton.addEventListener('click', () => {
+    infoModal.classList.add('hidden');
+  });
+
+  // Close modal when clicking outside
+  infoModal.addEventListener('click', (e) => {
+    if (e.target === infoModal) {
+      infoModal.classList.add('hidden');
+    }
+  });
+
+  // Copy URL functionality
+  copyUrlBtn.addEventListener('click', () => {
+    const url = copyUrlBtn.getAttribute('data-url');
+    navigator.clipboard.writeText(url).then(() => {
+      const originalText = copyUrlBtn.innerHTML;
+      copyUrlBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0z"/></svg> Copied!';
+      copyUrlBtn.style.backgroundColor = '#28ca42';
+      setTimeout(() => {
+        copyUrlBtn.innerHTML = originalText;
+        copyUrlBtn.style.backgroundColor = '';
+      }, 2000);
+    });
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+      infoModal.classList.add('hidden');
+    }
+  });
 })();
