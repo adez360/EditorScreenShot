@@ -76,6 +76,43 @@ jobs:
         with:
           tag: "${{ env.version }}"
       
+      # Extract release notes from CHANGELOG.md
+      - name: Extract Release Notes
+        id: release_notes
+        run: |
+          # Extract the section for current version from CHANGELOG.md
+          VERSION="${{ env.version }}"
+          CHANGELOG_FILE="${{ env.packagePath }}/CHANGELOG.md"
+          
+          # Find the section for this version
+          START_LINE=$(grep -n "## \[$VERSION\]" "$CHANGELOG_FILE" | cut -d: -f1)
+          if [ -n "$START_LINE" ]; then
+            # Find the next version section or end of file
+            NEXT_LINE=$(tail -n +$((START_LINE + 1)) "$CHANGELOG_FILE" | grep -n "## \[" | head -1 | cut -d: -f1)
+            if [ -n "$NEXT_LINE" ]; then
+              END_LINE=$((START_LINE + NEXT_LINE - 1))
+            else
+              END_LINE=$(wc -l < "$CHANGELOG_FILE")
+            fi
+            
+            # Extract the content
+            sed -n "${START_LINE},${END_LINE}p" "$CHANGELOG_FILE" > release_notes.md
+          else
+            echo "## Release $VERSION" > release_notes.md
+            echo "No changelog entry found for version $VERSION" >> release_notes.md
+          fi
+          
+          # Add installation instructions
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Add this package to your Unity project via Package Manager:" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "https://github.com/adez360/EditorScreenShot.git?path=Packages/com.adez360.editorscreenshot" >> release_notes.md
+          echo '```' >> release_notes.md
+          echo "" >> release_notes.md
+          echo "Or download the \`.unitypackage\` file and import it manually." >> release_notes.md
+
       # Publish the Release to GitHub
       - name: Make Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
@@ -85,3 +122,5 @@ jobs:
             ${{ env.unityPackage }}
             ${{ env.packagePath }}/package.json
           tag_name: ${{ env.version }}
+          name: "EditorScreenShot v${{ env.version }}"
+          body_path: release_notes.md
