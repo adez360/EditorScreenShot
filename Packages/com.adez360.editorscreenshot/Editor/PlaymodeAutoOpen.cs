@@ -34,7 +34,14 @@ static class ESSPlaymodeCoordinator
             
             // Delay longer to ensure camera and SceneView are ready
             EditorApplication.delayCall += () => EditorApplication.delayCall += () => 
-                EditorScreenShotSceneSync.EnsureSceneSyncEnabled(null);
+            {
+                // Get the EditorScreenShotData from the window instance
+                var data = EditorScreenShotWindow.GetCurrentData();
+                if (data != null)
+                {
+                    EditorScreenShotSceneSync.EnsureSceneSyncEnabled(data);
+                }
+            };
         }
         else if (change == PlayModeStateChange.EnteredPlayMode)
         {

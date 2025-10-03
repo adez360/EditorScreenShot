@@ -10,7 +10,7 @@ namespace EditorScreenShot
     public static class EditorScreenShotHotkeys
     {
         // Handle window hotkeys
-        public static void HandleWindowHotkeys(EditorScreenShotData data)
+        public static void HandleWindowHotkeys(EditorScreenShotData data, System.Action<Vector3, Quaternion, bool, float, float> persistPoseCallback = null)
         {
             var e = Event.current;
             if (e == null || e.type != EventType.KeyDown) return;
@@ -24,13 +24,13 @@ namespace EditorScreenShot
             }
             else if (e.keyCode == KeyCode.O)
             {
-                EditorScreenShotSceneSync.ToggleSceneSync(data, !data.sceneSyncOn);
+                EditorScreenShotSceneSync.ToggleSceneSync(data, !data.sceneSyncOn, persistPoseCallback);
                 e.Use();
             }
         }
 
         // Handle scene view hotkeys
-        public static void HandleSceneViewHotkeys(EditorScreenShotData data, SceneView sv)
+        public static void HandleSceneViewHotkeys(EditorScreenShotData data, SceneView sv, System.Action<Vector3, Quaternion, bool, float, float> persistPoseCallback = null)
         {
             if (sv == null) return;
 
@@ -47,7 +47,7 @@ namespace EditorScreenShot
                 }
                 else if (e.keyCode == KeyCode.O)
                 {
-                    EditorScreenShotSceneSync.ToggleSceneSync(data, !data.sceneSyncOn);
+                    EditorScreenShotSceneSync.ToggleSceneSync(data, !data.sceneSyncOn, persistPoseCallback);
                     e.Use();
                     sv.Repaint();
                 }
