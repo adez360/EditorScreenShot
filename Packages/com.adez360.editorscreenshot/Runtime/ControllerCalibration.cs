@@ -24,7 +24,6 @@ namespace EditorScreenShot.Runtime
         {
             if (!ctrl) return;
             var t = ctrl.GetType();
-            var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
             Vector3 e = worldRot.eulerAngles;
             float yaw = e.y;
@@ -42,7 +41,6 @@ namespace EditorScreenShot.Runtime
         {
             if (!ctrl) return;
             var t = ctrl.GetType();
-            var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
             Vector3 e = worldRot.eulerAngles;
             float yaw = e.y;
