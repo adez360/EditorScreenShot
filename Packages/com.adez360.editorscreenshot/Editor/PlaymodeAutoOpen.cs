@@ -1,5 +1,7 @@
 using UnityEditor;
 using UnityEngine;
+using EditorScreenShot;
+using EditorScreenShot.Runtime;
 
 // Auto-coordinate SceneSync and Freecam lock targets on PlayMode changes
 // Condition: Control panel window is open (_inst != null)
@@ -32,7 +34,7 @@ static class ESSPlaymodeCoordinator
             
             // Delay longer to ensure camera and SceneView are ready
             EditorApplication.delayCall += () => EditorApplication.delayCall += () => 
-                EditorScreenShotWindow.EnsureSceneSyncEnabled();
+                EditorScreenShotSceneSync.EnsureSceneSyncEnabled(null);
         }
         else if (change == PlayModeStateChange.EnteredPlayMode)
         {
@@ -52,11 +54,11 @@ static class ESSPlaymodeCoordinator
     static void StartupScanOnce()
     {
         // Simple scan: remove leftover ESSSceneSync/ESSposeOverride from cameras in edit mode
-        // 但保留 EditorScreenShot 相機上的組件
+        // But keep components on EditorScreenShot camera
         if (Application.isPlaying) return;
-        foreach (var cam in Object.FindObjectsOfType<Camera>())
+        foreach (var cam in UnityEngine.Object.FindObjectsOfType<Camera>())
         {
-            // 跳過 EditorScreenShot 相機，保留其組件
+            // Skip EditorScreenShot camera, keep its components
             if (cam.name == "EditorScreenShot") continue;
             
             var sync = cam.GetComponent<ESSSceneSync>();
@@ -81,8 +83,8 @@ public static class PlaymodeAutoOpen
         {
             EditorApplication.delayCall += () =>
             {
-                bool hasFreecam = Object.FindObjectsOfType<Freecam>(true).Length > 0;
-                bool hasFisheye = Object.FindObjectsOfType<FisheyeImageEffect>(true).Length > 0;
+                bool hasFreecam = UnityEngine.Object.FindObjectsOfType<Freecam>(true).Length > 0;
+                bool hasFisheye = UnityEngine.Object.FindObjectsOfType<FisheyeImageEffect>(true).Length > 0;
                 if (hasFreecam || hasFisheye) EditorScreenShotWindow.Open();
             };
         }

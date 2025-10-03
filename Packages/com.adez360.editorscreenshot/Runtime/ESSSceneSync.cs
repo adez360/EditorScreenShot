@@ -1,146 +1,155 @@
-// ESSSceneSync.cs
-// Runtime helper (works only in Editor). Keeps Camera pose synced to SceneView
-// while pausing other camera controllers. Safe to include in builds (does nothing).
 using UnityEngine;
-using System.Collections.Generic;
-using System.Reflection;
-using EditorScreenShot.Runtime;
+using UnityEditor;
+using System;
 
-public class ESSSceneSync : MonoBehaviour
+namespace EditorScreenShot.Runtime
 {
-    public Camera targetCam;
-    public MonoBehaviour freecamController;     // optional: your Freecam script
-    public Behaviour cinemachineBrain;          // optional
-    public bool syncing { get; private set; }
-
-    readonly List<Behaviour> _paused = new List<Behaviour>();
-    bool _clearedOnce;
-
-    public void Begin(Camera cam, MonoBehaviour freecam, Behaviour brain, params Behaviour[] alsoPause)
+    /// <summary>
+    /// Scene synchronization component that syncs camera with SceneView
+    /// </summary>
+    public class ESSSceneSync : MonoBehaviour
     {
-        targetCam = cam;
-        freecamController = freecam;
-        cinemachineBrain = brain;
-
-        syncing = true;
-        enabled = true;
-
-        _paused.Clear();
-        PauseIfNonNull(freecam as Behaviour);
-        PauseIfNonNull(brain);
-        if (alsoPause != null) foreach (var b in alsoPause) PauseIfNonNull(b);
-
-        // zero velocity-like fields once to remove momentum
-        ControllerCalibration.TryZeroVelocityLikeFields(freecam);
-
-        // first snap immediately
-        SnapToSceneView();
+        [Header("Scene Sync Settings")]
+        public bool syncing = false;
         
-        // Ensure component is in correct state
-        if (!gameObject.activeInHierarchy) gameObject.SetActive(true);
-        if (!enabled) enabled = true;
+        [Header("References")]
+        public Camera targetCam;
+        public Freecam freecamController;
         
-        // Use EditorApplication.update for edit mode
-        UnityEditor.EditorApplication.update += OnEditorUpdate;
-    }
-
-    public void End()
-    {
-        syncing = false;
-        enabled = false;
-        ResumePaused();
+        private Camera _camera;
+        private Freecam _freecam;
+        private Behaviour _cinemachineBrain;
+        private bool _wasEnabled;
         
-        // Remove EditorApplication.update callback
-        UnityEditor.EditorApplication.update -= OnEditorUpdate;
-    }
-
-    void PauseIfNonNull(Behaviour b) { if (b && b.enabled) { b.enabled = false; _paused.Add(b); } }
-    void ResumePaused() { for (int i = 0; i < _paused.Count; i++) if (_paused[i]) _paused[i].enabled = true; _paused.Clear(); }
-
+        void Awake()
+        {
+            _camera = GetComponent<Camera>();
+        }
+        
+        /// <summary>
+        /// Begin scene synchronization
+        /// </summary>
+        public void Begin(Camera camera, Freecam freecam, Behaviour cinemachineBrain)
+        {
+            if (syncing) return;
+            
+            _camera = camera;
+            _freecam = freecam;
+            _cinemachineBrain = cinemachineBrain;
+            
+            // Store original enabled state
+            _wasEnabled = enabled;
+            
+            // Enable this component
+            enabled = true;
+            syncing = true;
+            
+            // Disable other camera controllers
+            if (_freecam) _freecam.enabled = false;
+            if (_cinemachineBrain) _cinemachineBrain.enabled = false;
+            
 #if UNITY_EDITOR
-    void LateUpdate()
-    {
-        if (!syncing) return;
-        if (!targetCam) { End(); return; }
-        
-        // Ensure camera is still valid and enabled
-        if (!targetCam.gameObject.activeInHierarchy || !targetCam.enabled)
-        {
-            End();
-            return;
-        }
-        
-        SnapToSceneView();
-    }
-    
-    void Update()
-    {
-        // LateUpdate may be unreliable in edit mode, use Update as backup
-        if (!syncing) return;
-        if (!targetCam) { End(); return; }
-        
-        if (!targetCam.gameObject.activeInHierarchy || !targetCam.enabled)
-        {
-            End();
-            return;
-        }
-        
-        SnapToSceneView();
-    }
-    
-    void OnEditorUpdate()
-    {
-        // Use EditorApplication.update for edit mode sync
-        if (!syncing) return;
-        if (!targetCam) { End(); return; }
-        
-        if (!targetCam.gameObject.activeInHierarchy || !targetCam.enabled)
-        {
-            End();
-            return;
-        }
-        
-        SnapToSceneView();
-    }
-
-    void SnapToSceneView()
-    {
-        // Try multiple ways to get SceneView
-        var sv = UnityEditor.SceneView.lastActiveSceneView;
-        if (sv == null)
-        {
-            var allSceneViews = UnityEditor.SceneView.sceneViews;
-            if (allSceneViews != null && allSceneViews.Count > 0)
-                sv = allSceneViews[0] as UnityEditor.SceneView;
-        }
-        
-        if (sv == null || sv.camera == null) return;
-
-        // one-time cleanup of controllers' internals (yaw/pitch etc.)
-        if (!_clearedOnce && freecamController)
-        {
-            ControllerCalibration.TryCalibrateYawPitch(freecamController, sv.rotation);
-            _clearedOnce = true;
-        }
-
-        var t = targetCam.transform;
-        t.position = sv.camera.transform.position;
-        t.rotation = sv.rotation;
-
-        targetCam.orthographic = sv.orthographic;
-        if (sv.orthographic) targetCam.orthographicSize = sv.size;
-        else                  targetCam.fieldOfView      = sv.cameraSettings.fieldOfView;
-        
-        // Force mark as dirty to save changes
-        UnityEditor.EditorUtility.SetDirty(targetCam);
-        UnityEditor.EditorUtility.SetDirty(t);
-        
-        // Force repaint SceneView to show updates
-        sv.Repaint();
-    }
-
-    static float NormalizeAngle(float a){ a%=360f; if(a>180f)a-=360f; if(a<-180f)a+=360f; return a; }
-#else
-    void LateUpdate() { /* no-op in player build */ }
+            // In edit mode, start EditorApplication.update callback immediately
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update += SyncWithSceneView;
+            }
 #endif
+            
+        }
+        
+        /// <summary>
+        /// End scene synchronization
+        /// </summary>
+        public void End()
+        {
+            if (!syncing) return;
+            
+            syncing = false;
+            
+#if UNITY_EDITOR
+            // Remove EditorApplication.update callback in edit mode
+            if (!Application.isPlaying)
+            {
+                EditorApplication.update -= SyncWithSceneView;
+            }
+#endif
+            
+            // Re-enable other camera controllers
+            // In play mode, don't re-enable Freecam to avoid pose reset
+            if (!Application.isPlaying)
+            {
+                if (_freecam) _freecam.enabled = true;
+                if (_cinemachineBrain) _cinemachineBrain.enabled = true;
+            }
+            else
+            {
+                // In play mode, only re-enable CinemachineBrain if it was enabled before
+                if (_cinemachineBrain) _cinemachineBrain.enabled = true;
+                // Keep Freecam disabled to maintain current pose
+            }
+            
+            // Restore original enabled state
+            enabled = _wasEnabled;
+            
+        }
+        
+        void Update()
+        {
+            if (!syncing) return;
+            
+            // In play mode, Update() works normally
+            SyncWithSceneView();
+        }
+        
+        void SyncWithSceneView()
+        {
+            if (!syncing) return;
+            
+#if UNITY_EDITOR
+            // Sync with SceneView
+            var sceneView = SceneView.lastActiveSceneView;
+            if (sceneView != null && sceneView.camera != null)
+            {
+                // Sync position and rotation
+                _camera.transform.position = sceneView.camera.transform.position;
+                _camera.transform.rotation = sceneView.camera.transform.rotation;
+                
+                // Sync camera settings
+                _camera.orthographic = sceneView.orthographic;
+                if (sceneView.orthographic)
+                {
+                    _camera.orthographicSize = sceneView.size;
+                }
+                else
+                {
+                    _camera.fieldOfView = sceneView.cameraSettings.fieldOfView;
+                }
+            }
+#endif
+        }
+        
+        void OnDisable()
+        {
+            // Auto-end sync when component is disabled
+            if (syncing)
+            {
+                End();
+            }
+        }
+        
+        void OnDestroy()
+        {
+            // Clean up when component is destroyed
+            if (syncing)
+            {
+                End();
+            }
+            
+#if UNITY_EDITOR
+            // Ensure EditorApplication.update callback is removed
+            EditorApplication.update -= SyncWithSceneView;
+#endif
+        }
+    }
 }
