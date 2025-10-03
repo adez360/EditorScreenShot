@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2024-01-XX
+## [1.1.1] - 2025-10-03
 
 ### Fixed
 - Fixed bug where `EditorScreenShotSceneSync.EnsureSceneSyncEnabled(null)` was called with null parameter, causing scene sync functionality to break when exiting play mode
